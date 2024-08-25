@@ -1,147 +1,19 @@
 package main
 
 import (
-	"database/sql"
-	"encoding/json"
-	"fmt"
 	"log"
-	"math"
 	"net/http"
-	"os"
 
+	"github.com/drod21/DishDuel-be/handlers"
 	"github.com/gorilla/mux"
-	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
 )
 
-type Restaurant struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	MMR  int    `json:"mmr"`
-}
-
-type DuelRequest struct {
-	WinnerID string `json:"winner_id"`
-	LoserID  string `json:"loser_id"`
-}
-
-var db *sql.DB
-
-func main() {
-	// Load .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	// Construct database connection string from environment variables
-	dbURL := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_NAME"),
-		os.Getenv("DB_SSLMODE"),
-	)
-
-	// Initialize database connection
-	db, err = sql.Open("postgres", dbURL)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	// Test the connection
-	err = db.Ping()
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func startServer() error {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/restaurants", getRestaurants).Methods("GET")
-	router.HandleFunc("/duel", duelRestaurants).Methods("POST")
+	router.HandleFunc("/restaurants", handlers.GetRestaurants).Methods("GET")
+	router.HandleFunc("/duel", handlers.DuelRestaurants).Methods("POST")
 
-	log.Fatal(http.ListenAndServe(":8080", router))
-}
-
-func getRestaurants(w http.ResponseWriter, r *http.Request) {
-	// Implement database query to fetch restaurants
-}
-
-func duelRestaurants(w http.ResponseWriter, r *http.Request) {
-	var duelReq DuelRequest
-	err := json.NewDecoder(r.Body).Decode(&duelReq)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	winner, loser := findRestaurants(duelReq.WinnerID, duelReq.LoserID)
-	if winner == nil || loser == nil {
-		http.Error(w, "Invalid restaurant IDs", http.StatusBadRequest)
-		return
-	}
-
-	updateMMR(winner, loser)
-
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"winner": winner,
-		"loser":  loser,
-	})
-}
-
-func findRestaurants(winnerID, loserID string) (*Restaurant, *Restaurant) {
-	var winner, loser *Restaurant
-	// Implement database query to find restaurants
-	return winner, loser
-}
-
-func updateMMR(winner, loser *Restaurant) {
-	kFactor := 32.0
-	expectedScoreWinner := 1 / (1 + math.Pow(10, float64(loser.MMR-winner.MMR)/400))
-	expectedScoreLoser := 1 - expectedScoreWinner
-
-	winner.MMR += int(kFactor * (1 - expectedScoreWinner))
-	loser.MMR += int(kFactor * (0 - expectedScoreLoser))
-
-	// Implement database transactions for updating MMR and recording duels
-	// Start a database transaction
-	tx, err := db.Begin()
-	if err != nil {
-		log.Printf("Error starting transaction: %v", err)
-		return
-	}
-	defer tx.Rollback() // Rollback the transaction if it hasn't been committed
-
-	// Update winner's MMR
-	_, err = tx.Exec("UPDATE restaurants SET mmr = ? WHERE id = ?", winner.MMR, winner.ID)
-	if err != nil {
-		log.Printf("Error updating winner's MMR: %v", err)
-		return
-	}
-
-	// Update loser's MMR
-	_, err = tx.Exec("UPDATE restaurants SET mmr = ? WHERE id = ?", loser.MMR, loser.ID)
-	if err != nil {
-		log.Printf("Error updating loser's MMR: %v", err)
-		return
-	}
-
-	// Record the duel
-	_, err = tx.Exec("INSERT INTO duels (winner_id, loser_id, winner_mmr, loser_mmr) VALUES (?, ?, ?, ?)",
-		winner.ID, loser.ID, winner.MMR, loser.MMR)
-	if err != nil {
-		log.Printf("Error recording duel: %v", err)
-		return
-	}
-
-	// Commit the transaction
-	err = tx.Commit()
-	if err != nil {
-		log.Printf("Error committing transaction: %v", err)
-		return
-	}
-
-	log.Printf("Successfully updated MMR and recorded duel for winner %s and loser %s", winner.ID, loser.ID)
+	log.Println("Server starting on :8080")
+	return http.ListenAndServe(":8080", router)
 }

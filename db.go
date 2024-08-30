@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/drod21/DishDuel-be/db"
 	_ "github.com/lib/pq"
 )
 
-var db *sql.DB
-
-func initDB() error {
+func dbInit() error {
 	dbURL := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		os.Getenv("DB_HOST"),
 		os.Getenv("DB_PORT"),
@@ -21,10 +20,10 @@ func initDB() error {
 	)
 
 	var err error
-	db, err = sql.Open("postgres", dbURL)
+	db.DB, err = sql.Open("postgres", dbURL)
 	if err != nil {
 		return err
 	}
 
-	return db.Ping()
+	return db.DB.Ping()
 }

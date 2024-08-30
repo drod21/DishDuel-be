@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/drod21/DishDuel-be/db"
 	"github.com/drod21/DishDuel-be/models"
 	"github.com/drod21/DishDuel-be/utils"
 )
@@ -36,8 +37,18 @@ func DuelRestaurants(w http.ResponseWriter, r *http.Request) {
 		"loser":  loser,
 	})
 }
-
 func findRestaurants(winnerID, loserID string) (*models.Restaurant, *models.Restaurant) {
-	// Implement database query to find restaurants
-	return nil, nil
+	var winner, loser models.Restaurant
+	var db = db.DB
+	err := db.QueryRow("SELECT * FROM restaurants WHERE id = $1", winnerID).Scan(&winner.ID, &winner.Name, &winner.MMR)
+	if err != nil {
+		return nil, nil
+	}
+
+	err = db.QueryRow("SELECT * FROM restaurants WHERE id = $1", loserID).Scan(&loser.ID, &loser.Name, &loser.MMR)
+	if err != nil {
+		return nil, nil
+	}
+
+	return &winner, &loser
 }

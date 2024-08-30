@@ -14,7 +14,7 @@ func main() {
 	}
 
 	// Initialize database
-	if err := initDB(); err != nil {
+	if err := dbInit(); err != nil {
 		log.Fatal(err)
 	}
 
